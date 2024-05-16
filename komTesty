@@ -1,0 +1,195 @@
+
+import linie.Przystanek;
+import linie.Trasa;
+import linie.TrasaTramwaju;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import osoby.Pasażer;
+import pojazdy.Tramwaj;
+import pomocnicze.Kolejka;
+import pomocnicze.SortujPasażerówGodziną;
+import pomocnicze.Statystyka;
+import symulacja.Losowanie;
+import zdarzenia.*;
+
+import java.util.Arrays;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static symulacja.Main.*;
+
+class KomunikacjaTesty  {
+
+    private int n;
+    private Przystanek[] przystanki;
+    private TrasaTramwaju trasa;
+    private Statystyka stat;
+    private Tramwaj tram;
+    private Kolejka k;
+    private Zdarzenie[] zdarzenia;
+
+
+    @BeforeEach
+    void setUp() {
+        n = 5;
+        Przystanek p1 = new Przystanek("Banacha", 1);
+        Przystanek p2 = new Przystanek("Centrum", 1);
+        Przystanek p3 = new Przystanek("Krakowskie", 1);
+        przystanki = new Przystanek[3];
+        przystanki[0] = p1;
+        przystanki[1] = p2;
+        przystanki[2] = p3;
+        int[] czas = new int[3];
+        czas[0] = 2;
+        czas[1] = 3;
+        czas[2] = 5;
+        trasa = new TrasaTramwaju(3, przystanki, czas);
+        tram = new Tramwaj(0, trasa, GODZ_6, 5, 0, 1);
+        Statystyka stat = new Statystyka(1);
+        Kolejka k = new Kolejka();
+        Zdarzenie[] zdarzenia = new Zdarzenie[n];
+    }
+
+    @Test
+    public void zakresLosowania() {
+
+        int dolna = 17; int górna = 88;
+        Losowanie l1 = new Losowanie();
+        for (int i = 0; i < 5; i++) {
+            int wylosowana = l1.losuj(dolna, górna);
+            assertTrue(wylosowana <= górna);
+            assertTrue(wylosowana >= dolna);
+        }
+    }
+
+    @Test
+    public void znajdywaniePrzystanku() {
+        int pojemnośćPrzystanku = 10;
+        String[] nazwy = {"Zawiszy","Narutowicza", "Wawelska",
+                "Och-teatr", "Banacha"};
+
+        Przystanek[] wszystkiePrzystanki = new Przystanek[nazwy.length];
+        for (int i = 0; i < nazwy.length; i++) {
+            wszystkiePrzystanki[i] = new Przystanek(nazwy[i],
+                    pojemnośćPrzystanku);
+        }
+
+        assertEquals(podajPrzystanek("Banacha",
+                wszystkiePrzystanki),wszystkiePrzystanki[nazwy.length-1]);
+    }
+
+    @Test
+    public void sortowaniePasażerów() {
+        Przystanek p1 = new Przystanek("A", n);
+        Pasażer[] pasażerowie = new Pasażer[n];
+        for (int i = 0; i < n; i++) {
+            pasażerowie[i] = new Pasażer(i, p1);
+            pasażerowie[i]. setGodzinaPrzyjścia(GODZ_12 - (i * n));
+        }
+        Arrays.sort(pasażerowie, new SortujPasażerówGodziną());
+        assertTrue(pasażerowie[0].getGodzinaPrzyjścia()
+                < pasażerowie[1].getGodzinaPrzyjścia());
+        assertTrue(pasażerowie[1].getGodzinaPrzyjścia()
+                < pasażerowie[2].getGodzinaPrzyjścia());
+        assertTrue(pasażerowie[2].getGodzinaPrzyjścia()
+                < pasażerowie[3].getGodzinaPrzyjścia());
+        assertTrue(pasażerowie[3].getGodzinaPrzyjścia()
+                < pasażerowie[4].getGodzinaPrzyjścia());
+    }
+
+    @Test
+    public void następnyPrzystanek() {
+
+        // jedzie od pierwszej pętli
+        Tramwaj tram1 = new Tramwaj(0, trasa, GODZ_6, 0, 0, 1);
+        assertEquals(przystanki[0], tram1.getKolejnyPrzystankek());
+
+        Tramwaj tram2 = new Tramwaj(0, trasa, GODZ_6, 3, 0, 1);
+        assertEquals(przystanki[2], tram2.getKolejnyPrzystankek());
+    }
+
+    @Test
+    public void ruszaniePrzed23() {
+        Kolejka k = new Kolejka();
+        assertTrue(k.czyPusta());
+        Tramwaj tram1 = new Tramwaj(1, trasa, GODZ_12, 5, 0, 1);
+        tram1.uruchom(k, 0, stat);
+        assertFalse(k.czyPusta());
+    }
+
+    @Test
+    public void rzuszaniePo23() {
+
+        int godz_po_23 = 60 * 23 + 1;
+        Kolejka k = new Kolejka();
+        assertTrue(k.czyPusta());
+        Tramwaj tram1 = new Tramwaj(1, trasa, godz_po_23, 5, 0, 1);
+        tram1.uruchom(k, 0, stat);
+        assertTrue(k.czyPusta());
+    }
+
+    @Test
+    public void wstawianieDoKolejki() {
+
+        Kolejka k = new Kolejka();
+        Zdarzenie[] zdarzenia = new Zdarzenie[n];
+        for (int i = 0; i < n; i++) {
+            zdarzenia[i] = new PrzyjazdTramwaju(GODZ_12 - i,
+                    przystanki[0], tram, 0, stat);
+
+            k.wstaw(zdarzenia[i]);
+        }
+
+        assertFalse(k.czyPusta());
+
+        for (int i = 0; i < n; i++) {
+            assertTrue(k.pobierzPierwsze() == zdarzenia[n - 1 - i]);
+            k.usuń();
+        }
+        assertTrue(k.czyPusta());
+    }
+
+    @Test
+    public void opróżnianieTramwaju() {
+
+        Statystyka stat = new Statystyka(1);
+
+        Pasażer pasażer = new Pasażer(0, przystanki[0]);
+
+        new WejścieDoTramwaju(GODZ_12, przystanki[0], tram, 0, pasażer, stat);
+        assertEquals(1, tram.getIlePasażerów());
+
+        tram.opróźnij(stat);
+        assertEquals(0, tram.getIlePasażerów());
+    }
+
+    @Test
+    public void czyWychodząPasażerowie() {
+
+        Statystyka stat = new Statystyka(1);
+
+        Pasażer pasażer = new Pasażer(0, przystanki[0]);
+
+        new WejścieDoTramwaju(GODZ_12, przystanki[0], tram, 0, pasażer, stat);
+        assertEquals(1, tram.getIlePasażerów());
+
+        new WyjścieZTramwaju(GODZ_12, przystanki[0], tram, 0, 0, stat);
+        assertEquals(0, tram.getIlePasażerów());
+    }
+
+    @Test
+    public void czasCZekania() {
+        Pasażer pasażer = new Pasażer(0, przystanki[0]);
+        Kolejka k = new Kolejka();
+        Statystyka stat = new Statystyka(1);
+        int godzinaPrzyjścia = Losowanie.losuj(GODZ_6, GODZ_12);
+        pasażer.setGodzinaPrzyjścia(godzinaPrzyjścia);
+        pasażer.przyjdź(k, 0, stat);
+
+        k.wykonaj(0);
+        przystanki[0].opróżnij(stat);
+        System.out.println("Oczekiwany czas czekania to: " +
+                (GODZ_12 * 2 -godzinaPrzyjścia));
+        stat.wydrukuj();
+    }
+
+}
